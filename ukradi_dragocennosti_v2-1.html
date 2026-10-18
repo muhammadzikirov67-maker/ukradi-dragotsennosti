@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Укради драгоценности — прототип</title>
+<style>
+*{box-sizing:border-box} body{margin:0;background:#10151c;color:white;font-family:Arial,sans-serif}
+#app{max-width:1100px;margin:auto;padding:12px}
+h1{text-align:center;margin:6px}
+#hud{display:flex;gap:10px;flex-wrap:wrap;justify-content:space-between;background:#1d2632;padding:10px;border-radius:12px}
+#wrap{position:relative;margin-top:10px;overflow:hidden;border-radius:16px;border:2px solid #34404d}
+canvas{display:block;width:100%;background:#78909c}
+#controls{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:10px}
+button{font-size:16px;font-weight:bold;padding:12px 16px;border:0;border-radius:12px;background:#243244;color:white}
+button:active{transform:scale(.96)}
+#msg{text-align:center;min-height:25px;margin:8px}
+small{opacity:.75}
+</style>
+</head>
+<body>
+<div id="app">
+<h1>💎 УКРАДИ ДРАГОЦЕННОСТИ</h1>
+<div id="hud">
+<span>💎 Украдено: <b id="gems">0</b>/5</span>
+<span>🪙 Монеты: <b id="coins">100</b></span>
+<span>🔋 Бластер: <b id="ammo">6</b></span>
+<span>🚨 Погоня: <b id="wanted">0</b></span>
+</div>
+<div id="wrap"><canvas id="game" width="1100" height="620"></canvas></div>
+<div id="msg">Собери 5 драгоценностей и вернись на синюю базу.</div>
+<div id="controls">
+<button onclick="move(0,-1)">⬆️</button>
+<button onclick="move(-1,0)">⬅️</button>
+<button onclick="move(1,0)">➡️</button>
+<button onclick="move(0,1)">⬇️</button>
+<button onclick="jump()">🦘 Прыжок</button>
+<button onclick="blast()">⚡ Бластер</button>
+<button onclick="buyAmmo()">🔋 Заряд +3 (20🪙)</button>
+</div>
+<small>Это игровой прототип: здесь нет реальных покупок или оружия.</small>
+</div>
+<script>
+const c=document.getElementById('game'),ctx=c.getContext('2d');
+const W=c.width,H=c.height;
+let p={x:130,y:500,r:16,jump:0};
+let gems=0,coins=100,ammo=6,wanted=0;
+let guards=[{x:850,y:160,stun:0},{x:900,y:420,stun:0},{x:700,y:300,stun:0}];
+let crystals=[{x:350,y:140},{x:520,y:420},{x:720,y:120},{x:920,y:300},{x:560,y:170}];
+const base={x:70,y:450,w:170,h:110}, enemy={x:850,y:50,w:190,h:110};
+
+function rect(x,y,w,h,fill,stroke){ctx.fillStyle=fill;ctx.fillRect(x,y,w,h);if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=3;ctx.strokeRect(x,y,w,h)}}
+function draw(){
+ ctx.clearRect(0,0,W,H);
+ // large map
+ rect(0,0,W,H,'#66806f');
+ // roads
+ ctx.fillStyle='#9c8d73';ctx.fillRect(0,275,W,70);ctx.fillRect(455,0,75,H);
+ // water
+ rect(0,0,240,190,'#4d83a5');rect(820,430,280,190,'#4d83a5');
+ // city blocks
+ [[260,45,130,100],[590,40,130,100],[260,380,150,110],[600,400,150,130],[780,190,150,100]].forEach(a=>rect(...a,'#59616a','#303942'));
+ // castle
+ rect(enemy.x,enemy.y,enemy.w,enemy.h,'#7b8088','#252b33');
+ ctx.fillStyle='#4b66a8';ctx.fillRect(900,55,12,55);ctx.fillRect(965,55,12,55);
+ // base
+ rect(base.x,base.y,base.w,base.h,'#284e8c','#7db5ff');
+ // gems
+ crystals.forEach(g=>{ctx.save();ctx.translate(g.x,g.y);ctx.rotate(Math.PI/4);rect(-12,-12,24,24,'#58d5ff');ctx.restore()});
+ // guards
+ guards.forEach(g=>{ctx.fillStyle=g.stun>0?'#aaa':'#20242a';ctx.beginPath();ctx.arc(g.x,g.y,18,0,Math.PI*2);ctx.fill();ctx.fillStyle='#d94a4a';ctx.fillRect(g.x-14,g.y+14,28,8)});
+ // player
+ ctx.fillStyle='#173f78';ctx.beginPath();ctx.arc(p.x,p.y-p.jump,18,0,Math.PI*2);ctx.fill();
+ ctx.fillStyle='#111';ctx.fillRect(p.x-18,p.y-22-p.jump,36,7);
+ // minimap
+ rect(900,470,180,130,'#17202b');
+ ctx.fillStyle='#7fc4ff';ctx.fillRect(910,480,55,40);ctx.fillStyle='#f0d04e';ctx.fillRect(1010,490,45,35);
+ ctx.fillStyle='#fff';ctx.font='14px Arial';ctx.fillText('КАРТА',970,585);
+ if(p.jump>0){p.jump-=1}
+ requestAnimationFrame(draw);
+}
+function move(dx,dy){
+ const speed=dx&&dy?12:15;p.x=Math.max(20,Math.min(W-20,p.x+dx*speed));p.y=Math.max(20,Math.min(H-20,p.y+dy*speed));
+ check();
+}
+function jump(){p.jump=20;document.getElementById('msg').textContent='🦘 Прыжок! Можно перепрыгнуть препятствие.'}
+function blast(){
+ if(ammo<=0){document.getElementById('msg').textContent='🔋 Бластер разряжен.';return}
+ ammo--;wanted=Math.max(0,wanted-1);
+ let target=guards.find(g=>Math.hypot(g.x-p.x,g.y-p.y)<170);
+ if(target){target.stun=80;document.getElementById('msg').textContent='⚡ Энергетический заряд замедлил охрану!'}
+ else document.getElementById('msg').textContent='⚡ Заряд выпущен.';
+ document.getElementById('ammo').textContent=ammo;document.getElementById('wanted').textContent=wanted;
+}
+function buyAmmo(){
+ if(coins<20){document.getElementById('msg').textContent='Не хватает монет.';return}
+ coins-=20;ammo+=3;update();document.getElementById('msg').textContent='🔋 Заряд пополнен.';
+}
+function check(){
+ crystals=crystals.filter(g=>{
+  if(Math.hypot(g.x-p.x,g.y-p.y)<32){gems++;wanted=Math.min(5,wanted+1);document.getElementById('msg').textContent='💎 Драгоценность украдена! Охрана вас заметила!';return false}
+  return true;
+ });
+ if(p.x<base.x+base.w&&p.y>base.y&&gems>=5){coins+=100;gems=0;wanted=0;document.getElementById('msg').textContent='🏆 Успех! +100 монет. Новый рейд начинается!';resetGems()}
+ guards.forEach(g=>{if(g.stun>0)g.stun--;else if(wanted>0){let a=Math.atan2(p.y-g.y,p.x-g.x);g.x+=Math.cos(a)*1.3;g.y+=Math.sin(a)*1.3}});
+ update();
+}
+function resetGems(){crystals=[{x:350,y:140},{x:520,y:420},{x:720,y:120},{x:920,y:300},{x:560,y:170}]}
+function update(){document.getElementById('gems').textContent=gems;document.getElementById('coins').textContent=coins;document.getElementById('wanted').textContent=wanted}
+draw();update();
+</script>
+</body></html>
